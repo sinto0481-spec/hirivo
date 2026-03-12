@@ -207,18 +207,15 @@
         recognition.onresult = function (event) {
 
             let interimTranscript = '';
-            let currentFinal = '';
 
-            for (let i = 0; i < event.results.length; ++i) {
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
 
                 if (event.results[i].isFinal) {
-                    currentFinal += event.results[i][0].transcript;
+                    finalTranscript += event.results[i][0].transcript + ' ';
                 } else {
                     interimTranscript += event.results[i][0].transcript;
                 }
             }
-            
-            finalTranscript = currentFinal;
 
             document.getElementById('transcriptionText').innerHTML =
                 "<strong>" + finalTranscript + "</strong>" +
