@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="hero-section">
+    <div class="hero-content glass-panel">
+        <h1 class="gradient-text">Master Your Interview Before It Matters</h1>
+        <p class="subtitle">Simulate real scenarios. Analyze your speech. Get personalized feedback using advanced AI Natural Language Processing.</p>
+        <div class="hero-buttons">
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('interview_setup') }}" class="btn btn-primary pulse">Start Mock Interview</a>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">View My Progress</a>
+            {% else %}
+                <a href="{{ url_for('register') }}" class="btn btn-primary pulse">Get Started Now</a>
+                <a href="{{ url_for('login') }}" class="btn btn-secondary">Login to Account</a>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="features-grid">
+        <div class="feature-card glass-panel">
+            <div class="feature-icon">🎙️</div>
+            <h3>Speech to Text</h3>
+            <p>Accurately convert your voice responses into text in real-time.</p>
+        </div>
+        <div class="feature-card glass-panel">
+            <div class="feature-icon">🧠</div>
+            <h3>NLP Analysis</h3>
+            <p>We analyze grammar, keyword relevance, and answer structure.</p>
+        </div>
+        <div class="feature-card glass-panel">
+            <div class="feature-icon">📊</div>
+            <h3>Performance Score</h3>
+            <p>Actionable metrics pointing out confidence and filler word usage.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

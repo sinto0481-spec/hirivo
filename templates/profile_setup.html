@@ -1,0 +1,235 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="profile-setup-container">
+
+    <div class="glass-panel profile-setup-card">
+
+        <div class="setup-header">
+            <div class="setup-icon">👤</div>
+            <h2 class="gradient-text">Complete Your Profile</h2>
+            <p>Help us personalise your mock interview experience</p>
+        </div>
+
+        <form method="POST" action="{{ url_for('setup_profile') }}">
+
+            <div class="form-section">
+                <h4 class="section-label">Personal Information</h4>
+
+                <div class="form-group">
+                    <label for="full_name">Full Name</label>
+                    <input
+                        type="text"
+                        id="full_name"
+                        name="full_name"
+                        class="form-control"
+                        placeholder="e.g. Arjun Kumar"
+                        value="{{ profile.full_name if profile and profile.full_name else '' }}"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="phone">Phone Number</label>
+                    <input
+                        type="tel"
+                        id="phone"
+                        name="phone"
+                        class="form-control"
+                        placeholder="e.g. +91 98765 43210"
+                        value="{{ profile.phone if profile and profile.phone else '' }}"
+                    >
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h4 class="section-label">Academic Details</h4>
+
+                <div class="form-group">
+                    <label for="college">College / University</label>
+                    <input
+                        type="text"
+                        id="college"
+                        name="college"
+                        class="form-control"
+                        placeholder="e.g. Anna University"
+                        value="{{ profile.college if profile and profile.college else '' }}"
+                    >
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="branch">Branch / Department</label>
+                        <input
+                            type="text"
+                            id="branch"
+                            name="branch"
+                            class="form-control"
+                            placeholder="e.g. Computer Science"
+                            value="{{ profile.branch if profile and profile.branch else '' }}"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="year_of_study">Year of Study</label>
+                        <select id="year_of_study" name="year_of_study" class="form-control">
+                            <option value="">-- Select Year --</option>
+                            {% for yr in ['1st Year', '2nd Year', '3rd Year', '4th Year', 'Graduated'] %}
+                                <option value="{{ yr }}"
+                                    {{ 'selected' if profile and profile.year_of_study == yr else '' }}>
+                                    {{ yr }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h4 class="section-label">Online Presence</h4>
+
+                <div class="form-group">
+                    <label for="linkedin">LinkedIn Profile URL</label>
+                    <input
+                        type="url"
+                        id="linkedin"
+                        name="linkedin"
+                        class="form-control"
+                        placeholder="https://linkedin.com/in/yourname"
+                        value="{{ profile.linkedin if profile and profile.linkedin else '' }}"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="github">GitHub Profile URL</label>
+                    <input
+                        type="url"
+                        id="github"
+                        name="github"
+                        class="form-control"
+                        placeholder="https://github.com/yourusername"
+                        value="{{ profile.github if profile and profile.github else '' }}"
+                    >
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h4 class="section-label">Career</h4>
+
+                <div class="form-group">
+                    <label for="career_goal">Career Goal / Dream Role</label>
+                    <textarea
+                        id="career_goal"
+                        name="career_goal"
+                        class="form-control"
+                        rows="3"
+                        placeholder="e.g. I want to become a Full Stack Developer at a product-based company."
+                    >{{ profile.career_goal if profile and profile.career_goal else '' }}</textarea>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-large">
+                    Save Profile &amp; Continue
+                </button>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                    Skip for now
+                </a>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+<style>
+.profile-setup-container {
+    max-width: 680px;
+    margin: 40px auto;
+    padding: 0 20px;
+}
+.profile-setup-card {
+    padding: 40px;
+}
+.setup-header {
+    text-align: center;
+    margin-bottom: 36px;
+}
+.setup-icon {
+    font-size: 52px;
+    margin-bottom: 10px;
+}
+.setup-header p {
+    color: #aaa;
+    margin-top: 6px;
+}
+.form-section {
+    margin-bottom: 28px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.form-section:last-of-type {
+    border-bottom: none;
+}
+.section-label {
+    color: #a78bfa;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 16px;
+}
+.form-group {
+    margin-bottom: 18px;
+}
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+    color: #ccc;
+}
+.form-control {
+    width: 100%;
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    color: #fff;
+    font-size: 0.95rem;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+}
+.form-control:focus {
+    outline: none;
+    border-color: #a78bfa;
+    background: rgba(255,255,255,0.09);
+}
+.form-control option {
+    background: #1a1a2e;
+    color: #fff;
+}
+textarea.form-control {
+    resize: vertical;
+}
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+.form-actions {
+    display: flex;
+    gap: 14px;
+    margin-top: 28px;
+    flex-wrap: wrap;
+}
+.btn-large {
+    padding: 12px 28px;
+    font-size: 1rem;
+}
+@media (max-width: 480px) {
+    .form-row { grid-template-columns: 1fr; }
+    .profile-setup-card { padding: 24px; }
+}
+</style>
+
+{% endblock %}

@@ -1,0 +1,588 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="interview-container">
+
+    <!-- Session Progress Bar -->
+    <div class="session-bar glass-panel">
+        <div class="session-info">
+            <span class="session-category">{{ category_icon }} {{ category }}</span>
+            <span class="session-progress" id="progressText">Question {{ current_num }} of {{ total_questions }}</span>
+        </div>
+        <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="progressBar"
+                 style="width: {{ (current_num / total_questions * 100)|round }}%"></div>
+        </div>
+    </div>
+
+    <!-- Question Panel -->
+    <div class="question-panel glass-panel">
+        <h3 class="gradient-text">Current Question</h3>
+        <p class="question-display" id="questionText">{{ question }}</p>
+        <p id="timerDisplay">Time Remaining: {{ time_limit }}s</p>
+    </div>
+
+    <!-- Interaction Panel -->
+    <div class="interaction-panel glass-panel">
+        <div class="status-indicator">
+            <div id="recordingStatus" class="recording-status idle">
+                <div class="mic-icon">🎤</div>
+                <span id="statusText">Ready to start</span>
+            </div>
+        </div>
+
+        <div class="transcription-box">
+            <h4>Live Transcription:</h4>
+            <div id="transcriptionText" class="transcription-placeholder">
+                Your speech will appear here...
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="startBtn" class="btn btn-primary btn-large pulse">
+                Start Answering
+            </button>
+
+            <button id="stopBtn" class="btn btn-danger btn-large" style="display:none;">
+                Stop & Submit
+            </button>
+        </div>
+    </div>
+
+    <!-- Results Panel -->
+    <div id="resultsPanel" class="results-panel glass-panel" style="display:none;">
+        <h3>
+            Analysis Results
+            <span id="loadingSpinner" class="spinner" style="display:none;"></span>
+        </h3>
+
+        <div id="scoreContainer" style="display:none;">
+
+            <div class="main-score">
+                <span id="finalScore" class="score-big">0</span>
+                <span class="score-label">Total Score</span>
+            </div>
+
+            <div class="feedback-grid">
+
+                <div class="feedback-card">
+                    <h4>Keyword Matching:
+                        <span id="kwScore" class="highlight">0</span>/100
+                    </h4>
+                    <p id="kwFeedback" class="feedback-text"></p>
+                </div>
+
+                <div class="feedback-card">
+                    <h4>Grammar & Structure:
+                        <span id="grScore" class="highlight">0</span>/100
+                    </h4>
+                    <p id="grFeedback" class="feedback-text"></p>
+                </div>
+
+                <div class="feedback-card">
+                    <h4>Confidence & Flow:
+                        <span id="cfScore" class="highlight">0</span>/100
+                    </h4>
+                    <p id="cfFeedback" class="feedback-text"></p>
+                </div>
+
+            </div>
+
+            <!-- Improvement Tips Section -->
+            <div id="tipsSection" class="tips-section" style="display:none;">
+                <h4 class="tips-title">💡 Improvement Tips</h4>
+                <ul id="tipsList" class="tips-list"></ul>
+            </div>
+
+            <!-- Keywords Section -->
+            <div id="keywordsSection" class="keywords-section" style="display:none;">
+                <h4 class="keywords-title">🔑 Keyword Analysis</h4>
+                <div class="keywords-row">
+                    <div class="keywords-group">
+                        <span class="keywords-label">✅ Matched:</span>
+                        <div id="matchedKeywords" class="keywords-badges"></div>
+                    </div>
+                    <div class="keywords-group">
+                        <span class="keywords-label">❌ Missed:</span>
+                        <div id="missedKeywords" class="keywords-badges"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation Actions -->
+            <div class="actions">
+                <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                    Back to Dashboard
+                </a>
+
+                <button id="nextBtn" onclick="loadNextQuestion()" class="btn btn-primary"
+                    {% if is_last %}style="display:none;"{% endif %}>
+                    Next Question →
+                </button>
+
+                <a id="finishBtn" href="{{ url_for('session_summary', session_id=session_id) }}"
+                   class="btn btn-primary"
+                   {% if not is_last %}style="display:none;"{% endif %}>
+                    🏁 Finish & View Results
+                </a>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+
+<script>
+
+    let timeLimit = {{ time_limit }};
+    let timeLeft = timeLimit;
+    let timerInterval = null;
+    let sessionId = {{ session_id }};
+    let currentNum = {{ current_num }};
+    let totalQuestions = {{ total_questions }};
+    let isLastQuestion = {{ 'true' if is_last else 'false' }};
+
+
+    // ---------------- TIMER ----------------
+
+    function startTimer() {
+
+        timeLeft = timeLimit;
+
+        document.getElementById("timerDisplay").innerText =
+            "Time Remaining: " + timeLeft + "s";
+
+        timerInterval = setInterval(() => {
+
+            timeLeft--;
+
+            document.getElementById("timerDisplay").innerText =
+                "Time Remaining: " + timeLeft + "s";
+
+            if (timeLeft <= 0) {
+
+                clearInterval(timerInterval);
+
+                if (recognition) {
+                    recognition.stop();
+                }
+
+                document.getElementById('statusText').innerText =
+                    "Time up! Submitting answer...";
+            }
+
+        }, 1000);
+    }
+
+
+    // ---------------- SPEECH RECOGNITION ----------------
+
+    const SpeechAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    let recognition = null;
+    let finalTranscript = '';
+    let hasError = false;
+
+    if (SpeechAPI) {
+
+        recognition = new SpeechAPI();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+
+        recognition.onstart = function () {
+
+            startTimer();
+
+            document.getElementById('recordingStatus').className = 'recording-status recording';
+            document.getElementById('statusText').innerText = 'Recording... Speak now';
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('stopBtn').style.display = 'inline-block';
+            document.getElementById('transcriptionText').innerText = '';
+
+            finalTranscript = '';
+            hasError = false;
+        };
+
+        recognition.onresult = function (event) {
+
+            let interimTranscript = '';
+
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+
+                if (event.results[i].isFinal) {
+                    finalTranscript += event.results[i][0].transcript;
+                } else {
+                    interimTranscript += event.results[i][0].transcript;
+                }
+            }
+
+            document.getElementById('transcriptionText').innerHTML =
+                "<strong>" + finalTranscript + "</strong>" +
+                "<span style='color:#888'>" + interimTranscript + "</span>";
+        };
+
+        recognition.onerror = function (event) {
+
+            hasError = true;
+
+            document.getElementById('statusText').innerText = 'Error: ' + event.error;
+            document.getElementById('recordingStatus').className = 'recording-status error';
+
+            resetButtons();
+
+            alert("Microphone error: " + event.error);
+        };
+
+        recognition.onend = function () {
+
+            clearInterval(timerInterval);
+
+            if (!hasError) {
+                if (finalTranscript.trim().length === 0) {
+                    document.getElementById('statusText').innerText = 'No speech detected. Please try again.';
+                    resetButtons();
+                } else {
+                    submitAnswer(finalTranscript);
+                    resetButtons();
+                }
+            } else {
+                resetButtons();
+            }
+        };
+
+    } else {
+        alert("Your browser does not support Speech Recognition. Please use Chrome.");
+    }
+
+
+    // ---------------- BUTTON EVENTS ----------------
+
+    document.getElementById('startBtn').addEventListener('click', () => {
+        if (recognition) {
+            recognition.start();
+        }
+    });
+
+    document.getElementById('stopBtn').addEventListener('click', () => {
+        if (recognition) {
+            recognition.stop();
+        }
+        document.getElementById('statusText').innerText = 'Processing...';
+    });
+
+
+    // ---------------- RESET BUTTONS ----------------
+
+    function resetButtons() {
+        document.getElementById('startBtn').style.display = 'inline-block';
+        document.getElementById('stopBtn').style.display = 'none';
+    }
+
+
+    // ---------------- SUBMIT ANSWER ----------------
+
+    function submitAnswer(transcript) {
+
+        const questionText = document.getElementById('questionText').innerText;
+
+        document.getElementById('resultsPanel').style.display = 'block';
+        document.getElementById('loadingSpinner').style.display = 'inline-block';
+        document.getElementById('scoreContainer').style.display = 'none';
+
+        fetch('/api/analyze', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                question: questionText,
+                answer: transcript,
+                session_id: sessionId
+            })
+        })
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error("Server error: " + res.status);
+                }
+                return res.json();
+            })
+            .then(data => {
+
+                document.getElementById('loadingSpinner').style.display = 'none';
+                document.getElementById('scoreContainer').style.display = 'block';
+
+                animateScore('finalScore', data.total_score);
+
+                document.getElementById('kwScore').innerText = data.keyword_score;
+                document.getElementById('grScore').innerText = data.grammar_score;
+                document.getElementById('cfScore').innerText = data.confidence_score;
+
+                document.getElementById('kwFeedback').innerText = data.keyword_feedback;
+                document.getElementById('grFeedback').innerText = data.grammar_feedback;
+                document.getElementById('cfFeedback').innerText = data.confidence_feedback;
+
+                // Show improvement tips
+                if (data.improvement_tips && data.improvement_tips.length > 0) {
+                    document.getElementById('tipsSection').style.display = 'block';
+                    const tipsList = document.getElementById('tipsList');
+                    tipsList.innerHTML = '';
+                    data.improvement_tips.forEach(tip => {
+                        const li = document.createElement('li');
+                        li.textContent = tip;
+                        tipsList.appendChild(li);
+                    });
+                }
+
+                // Show keyword analysis
+                if (data.expected_keywords && data.expected_keywords.length > 0) {
+                    document.getElementById('keywordsSection').style.display = 'block';
+
+                    const matchedDiv = document.getElementById('matchedKeywords');
+                    const missedDiv = document.getElementById('missedKeywords');
+                    matchedDiv.innerHTML = '';
+                    missedDiv.innerHTML = '';
+
+                    data.matched_keywords.forEach(kw => {
+                        const span = document.createElement('span');
+                        span.className = 'keyword-badge keyword-matched';
+                        span.textContent = kw;
+                        matchedDiv.appendChild(span);
+                    });
+
+                    if (data.matched_keywords.length === 0) {
+                        matchedDiv.innerHTML = '<span class="keyword-none">None</span>';
+                    }
+
+                    data.missed_keywords.forEach(kw => {
+                        const span = document.createElement('span');
+                        span.className = 'keyword-badge keyword-missed';
+                        span.textContent = kw;
+                        missedDiv.appendChild(span);
+                    });
+
+                    if (data.missed_keywords.length === 0) {
+                        missedDiv.innerHTML = '<span class="keyword-none">All matched! 🎉</span>';
+                    }
+                }
+            })
+            .catch(err => {
+                document.getElementById('loadingSpinner').style.display = 'none';
+                document.getElementById('resultsPanel').style.display = 'none';
+                alert("Failed to analyse answer. Please try again.\n" + err.message);
+            });
+    }
+
+
+    // ---------------- NEXT QUESTION (SESSION) ----------------
+
+    function loadNextQuestion() {
+
+        fetch('/api/session/' + sessionId + '/next')
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error("Could not load next question.");
+                }
+                return res.json();
+            })
+            .then(data => {
+
+                if (data.complete) {
+                    window.location.href = data.redirect;
+                    return;
+                }
+
+                document.getElementById("questionText").innerText = data.question;
+
+                currentNum = data.current_num;
+                totalQuestions = data.total_questions;
+                isLastQuestion = data.is_last;
+
+                // Update progress
+                document.getElementById("progressText").innerText =
+                    "Question " + currentNum + " of " + totalQuestions;
+                document.getElementById("progressBar").style.width =
+                    (currentNum / totalQuestions * 100) + "%";
+
+                // Update buttons
+                if (isLastQuestion) {
+                    document.getElementById('nextBtn').style.display = 'none';
+                    document.getElementById('finishBtn').style.display = 'inline-block';
+                } else {
+                    document.getElementById('nextBtn').style.display = 'inline-block';
+                    document.getElementById('finishBtn').style.display = 'none';
+                }
+
+                // Reset UI
+                timeLeft = timeLimit;
+                document.getElementById("timerDisplay").innerText =
+                    "Time Remaining: " + timeLimit + "s";
+
+                document.getElementById("resultsPanel").style.display = "none";
+                document.getElementById("tipsSection").style.display = "none";
+                document.getElementById("keywordsSection").style.display = "none";
+                document.getElementById("transcriptionText").innerText =
+                    "Your speech will appear here...";
+                document.getElementById("statusText").innerText = "Ready to start";
+                document.getElementById("recordingStatus").className = "recording-status idle";
+            })
+            .catch(err => {
+                alert("Error loading question: " + err.message);
+            });
+    }
+
+
+    // ---------------- SCORE ANIMATION ----------------
+
+    function animateScore(id, target) {
+
+        let current = 0;
+        let el = document.getElementById(id);
+
+        let interval = setInterval(() => {
+
+            current += 2;
+
+            if (current >= target) {
+                el.innerText = target;
+                clearInterval(interval);
+            } else {
+                el.innerText = current;
+            }
+
+        }, 20);
+    }
+
+</script>
+
+
+<style>
+/* Session Progress Bar */
+.session-bar {
+    padding: 1rem 1.5rem;
+    margin-bottom: 0.5rem;
+}
+.session-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.6rem;
+}
+.session-category {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #a78bfa;
+}
+.session-progress {
+    font-size: 0.85rem;
+    color: #999;
+}
+.progress-bar-bg {
+    height: 8px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #a78bfa, #60a5fa);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+/* Improvement Tips */
+.tips-section {
+    text-align: left;
+    background: rgba(167, 139, 250, 0.08);
+    border: 1px solid rgba(167, 139, 250, 0.2);
+    border-radius: 12px;
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 1.5rem;
+}
+.tips-title {
+    font-size: 1rem;
+    margin-bottom: 0.6rem;
+    color: #a78bfa;
+}
+.tips-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.tips-list li {
+    padding: 0.4rem 0;
+    padding-left: 1.2rem;
+    position: relative;
+    font-size: 0.9rem;
+    color: #ccc;
+    line-height: 1.5;
+}
+.tips-list li::before {
+    content: "→";
+    position: absolute;
+    left: 0;
+    color: #a78bfa;
+    font-weight: bold;
+}
+
+/* Keywords Section */
+.keywords-section {
+    text-align: left;
+    background: rgba(96, 165, 250, 0.08);
+    border: 1px solid rgba(96, 165, 250, 0.2);
+    border-radius: 12px;
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 1.5rem;
+}
+.keywords-title {
+    font-size: 1rem;
+    margin-bottom: 0.8rem;
+    color: #60a5fa;
+}
+.keywords-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+.keywords-group {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.keywords-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #aaa;
+    white-space: nowrap;
+    padding-top: 3px;
+}
+.keywords-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+.keyword-badge {
+    font-size: 0.78rem;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-weight: 500;
+}
+.keyword-matched {
+    background: rgba(52, 211, 153, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(52, 211, 153, 0.3);
+}
+.keyword-missed {
+    background: rgba(248, 113, 113, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(248, 113, 113, 0.3);
+}
+.keyword-none {
+    font-size: 0.8rem;
+    color: #888;
+    font-style: italic;
+}
+</style>
+
+{% endblock %}

@@ -1,0 +1,477 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<!-- ============ PROFILE CARD ============ -->
+<div class="profile-banner glass-panel">
+
+    <div class="profile-avatar">
+        {{ (profile.full_name[0] if profile and profile.full_name else current_user.username[0]) | upper }}
+    </div>
+
+    <div class="profile-info">
+
+        <div class="profile-name-row">
+            <h2>
+                {{ profile.full_name if profile and profile.full_name else current_user.username }}
+            </h2>
+            <a href="{{ url_for('setup_profile') }}" class="btn-edit" title="Edit Profile">✏️ Edit</a>
+        </div>
+
+        <p class="profile-username">@{{ current_user.username }}</p>
+
+        <div class="profile-tags">
+
+            {% if profile and profile.college %}
+            <span class="tag tag-blue">🏫 {{ profile.college }}</span>
+            {% endif %}
+
+            {% if profile and profile.branch %}
+            <span class="tag tag-purple">📚 {{ profile.branch }}</span>
+            {% endif %}
+
+            {% if profile and profile.year_of_study %}
+            <span class="tag tag-green">📅 {{ profile.year_of_study }}</span>
+            {% endif %}
+
+            {% if profile and profile.phone %}
+            <span class="tag tag-gray">📞 {{ profile.phone }}</span>
+            {% endif %}
+
+        </div>
+
+        {% if profile and profile.career_goal %}
+        <p class="profile-goal">🎯 {{ profile.career_goal }}</p>
+        {% endif %}
+
+        <div class="profile-links">
+            {% if profile and profile.linkedin %}
+            <a href="{{ profile.linkedin }}" target="_blank" class="social-link linkedin">
+                🔗 LinkedIn
+            </a>
+            {% endif %}
+            {% if profile and profile.github %}
+            <a href="{{ profile.github }}" target="_blank" class="social-link github">
+                🐙 GitHub
+            </a>
+            {% endif %}
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ============ STATS ROW ============ -->
+<div class="stats-row">
+
+    <div class="stat-box glass-panel">
+        <div class="stat-icon">🎤</div>
+        <div class="stat-value">{{ total_interviews }}</div>
+        <div class="stat-label">Interviews Taken</div>
+    </div>
+
+    <div class="stat-box glass-panel">
+        <div class="stat-icon">📊</div>
+        <div class="stat-value {{ 'good' if avg_score > 70 else 'average' if avg_score > 40 else 'poor' }}">
+            {{ avg_score }}
+        </div>
+        <div class="stat-label">Average Score</div>
+    </div>
+
+    <div class="stat-box glass-panel">
+        <div class="stat-icon">🏆</div>
+        <div class="stat-value {{ 'good' if best_score > 70 else 'average' if best_score > 40 else 'poor' }}">
+            {{ best_score }}
+        </div>
+        <div class="stat-label">Best Score</div>
+    </div>
+
+</div>
+
+
+<!-- ============ SCORE CHART ============ -->
+{% if score_history %}
+<div class="chart-section glass-panel">
+    <h3 class="section-title">📈 Score Progress (Last 10 Attempts)</h3>
+    <canvas id="scoreChart" height="80"></canvas>
+</div>
+{% endif %}
+
+
+<!-- ============ RECENT SESSIONS ============ -->
+{% if recent_sessions %}
+<div class="sessions-section">
+    <h3 class="section-title">📋 Recent Sessions</h3>
+    <div class="sessions-grid">
+        {% for sess in recent_sessions %}
+        <a href="{{ url_for('session_summary', session_id=sess.id) }}" class="session-card glass-panel interactive">
+            <div class="session-card-header">
+                <span class="session-card-category">{{ sess.category }}</span>
+                <span class="badge {{ 'badge-good' if sess.avg_score > 70 else 'badge-avg' if sess.avg_score > 40 else 'badge-poor' }}">
+                    {{ sess.avg_score }}/100
+                </span>
+            </div>
+            <div class="session-card-meta">
+                {{ sess.completed_questions }}/{{ sess.total_questions }} questions
+                {% if sess.is_complete %}
+                <span class="session-done">✅ Complete</span>
+                {% else %}
+                <span class="session-progress-tag">⏳ In Progress</span>
+                {% endif %}
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+
+<!-- ============ INTERVIEW HISTORY ============ -->
+<div class="history-section">
+
+    <div class="history-header">
+        <h3 class="section-title">Your Interview History</h3>
+        <a href="{{ url_for('interview_setup') }}" class="btn btn-primary">
+            ＋ Start New Interview
+        </a>
+    </div>
+
+    {% if attempts %}
+
+        <div class="attempts-grid">
+
+            {% for attempt in attempts %}
+
+            <div class="attempt-card glass-panel interactive">
+
+                <div class="attempt-header">
+                    <h4>Attempt #{{ attempt.id }}</h4>
+                    <span class="badge
+                        {{ 'badge-good' if attempt.total_score > 70 else 'badge-avg' if attempt.total_score > 40 else 'badge-poor' }}">
+                        {{ attempt.total_score }}/100
+                    </span>
+                </div>
+
+                <p class="question-text">
+                    <strong>Q:</strong> {{ attempt.question }}
+                </p>
+
+                <p class="answer-text">
+                    <strong>Your Answer:</strong>
+                    "{{ attempt.answer[:100] }}{% if attempt.answer|length > 100 %}...{% endif %}"
+                </p>
+
+                <div class="metrics-bar">
+
+                    <div class="metric">
+                        <span class="metric-label">Keywords</span>
+                        <div class="metric-bar-bg">
+                            <div class="metric-bar-fill" style="width:{{ attempt.keyword_score }}%"></div>
+                        </div>
+                        <span class="metric-value">{{ attempt.keyword_score }}</span>
+                    </div>
+
+                    <div class="metric">
+                        <span class="metric-label">Grammar</span>
+                        <div class="metric-bar-bg">
+                            <div class="metric-bar-fill" style="width:{{ attempt.grammar_score }}%"></div>
+                        </div>
+                        <span class="metric-value">{{ attempt.grammar_score }}</span>
+                    </div>
+
+                    <div class="metric">
+                        <span class="metric-label">Confidence</span>
+                        <div class="metric-bar-bg">
+                            <div class="metric-bar-fill" style="width:{{ attempt.confidence_score }}%"></div>
+                        </div>
+                        <span class="metric-value">{{ attempt.confidence_score }}</span>
+                    </div>
+
+                </div>
+
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+    {% else %}
+
+        <div class="empty-state glass-panel">
+            <div class="icon">📝</div>
+            <p>You haven't taken any mock interviews yet.</p>
+            <a href="{{ url_for('interview_setup') }}" class="btn btn-primary">
+                Start Your First Interview
+            </a>
+        </div>
+
+    {% endif %}
+
+</div>
+
+
+<!-- ============ CHART JS ============ -->
+{% if score_history %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+const scoreData = {{ score_history | tojson }};
+
+const ctx = document.getElementById('scoreChart').getContext('2d');
+
+new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: scoreData.map((d, i) => 'Attempt ' + (i + 1)),
+        datasets: [{
+            label: 'Score',
+            data: scoreData.map(d => d.score),
+            borderColor: '#a78bfa',
+            backgroundColor: 'rgba(167,139,250,0.15)',
+            borderWidth: 2.5,
+            pointBackgroundColor: '#a78bfa',
+            pointRadius: 5,
+            tension: 0.4,
+            fill: true
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            y: {
+                min: 0,
+                max: 100,
+                ticks: { color: '#aaa' },
+                grid: { color: 'rgba(255,255,255,0.05)' }
+            },
+            x: {
+                ticks: { color: '#aaa' },
+                grid: { color: 'rgba(255,255,255,0.05)' }
+            }
+        }
+    }
+});
+</script>
+{% endif %}
+
+
+<!-- ============ DASHBOARD STYLES ============ -->
+<style>
+
+/* ---- Profile Banner ---- */
+.profile-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 28px;
+    padding: 30px;
+    margin-bottom: 24px;
+}
+.profile-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #a78bfa, #60a5fa);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+}
+.profile-info {
+    flex: 1;
+}
+.profile-name-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+.profile-name-row h2 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+.btn-edit {
+    font-size: 0.8rem;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: rgba(167,139,250,0.15);
+    color: #a78bfa;
+    text-decoration: none;
+    border: 1px solid rgba(167,139,250,0.3);
+    transition: background 0.2s;
+}
+.btn-edit:hover { background: rgba(167,139,250,0.28); }
+.profile-username {
+    color: #888;
+    font-size: 0.85rem;
+    margin: 4px 0 12px;
+}
+.profile-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.tag {
+    font-size: 0.8rem;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-weight: 500;
+}
+.tag-blue   { background: rgba(96,165,250,0.15);  color: #60a5fa; border: 1px solid rgba(96,165,250,0.3); }
+.tag-purple { background: rgba(167,139,250,0.15); color: #a78bfa; border: 1px solid rgba(167,139,250,0.3); }
+.tag-green  { background: rgba(52,211,153,0.15);  color: #34d399; border: 1px solid rgba(52,211,153,0.3); }
+.tag-gray   { background: rgba(255,255,255,0.07); color: #bbb;    border: 1px solid rgba(255,255,255,0.12); }
+.profile-goal {
+    font-size: 0.88rem;
+    color: #ccc;
+    margin: 8px 0 10px;
+    font-style: italic;
+}
+.profile-links {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.social-link {
+    font-size: 0.82rem;
+    padding: 4px 14px;
+    border-radius: 20px;
+    text-decoration: none;
+    transition: opacity 0.2s;
+}
+.social-link:hover { opacity: 0.8; }
+.linkedin { background: rgba(10,102,194,0.2); color: #60a5fa; border: 1px solid rgba(10,102,194,0.4); }
+.github   { background: rgba(255,255,255,0.07); color: #ddd;  border: 1px solid rgba(255,255,255,0.15); }
+
+/* ---- Stats Row ---- */
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+.stat-box {
+    padding: 22px 16px;
+    text-align: center;
+}
+.stat-icon { font-size: 1.6rem; margin-bottom: 8px; }
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #fff;
+}
+.stat-value.good    { color: #34d399; }
+.stat-value.average { color: #fbbf24; }
+.stat-value.poor    { color: #f87171; }
+.stat-label { font-size: 0.8rem; color: #888; margin-top: 4px; }
+
+/* ---- Chart ---- */
+.chart-section {
+    padding: 24px;
+    margin-bottom: 28px;
+}
+
+/* ---- History Header ---- */
+.history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+/* ---- Metric bars ---- */
+.metric {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+.metric-label {
+    font-size: 0.75rem;
+    color: #999;
+    width: 72px;
+    flex-shrink: 0;
+}
+.metric-bar-bg {
+    flex: 1;
+    height: 6px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.metric-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #a78bfa, #60a5fa);
+    border-radius: 4px;
+    transition: width 0.6s ease;
+}
+.metric-value {
+    font-size: 0.8rem;
+    color: #ccc;
+    width: 28px;
+    text-align: right;
+}
+
+/* ---- Sessions ---- */
+.sessions-section {
+    margin-bottom: 28px;
+}
+.sessions-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.session-card {
+    text-decoration: none;
+    color: inherit;
+    padding: 14px 20px;
+    transition: all 0.2s;
+    display: block;
+}
+.session-card:hover {
+    transform: translateX(4px);
+    border-color: rgba(167,139,250,0.3);
+}
+.session-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+.session-card-category {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+.session-card-meta {
+    font-size: 0.8rem;
+    color: #888;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+.session-done {
+    font-size: 0.75rem;
+}
+.session-progress-tag {
+    font-size: 0.75rem;
+    color: #fbbf24;
+}
+
+@media (max-width: 600px) {
+    .profile-banner { flex-direction: column; align-items: center; text-align: center; }
+    .profile-name-row { justify-content: center; }
+    .profile-tags { justify-content: center; }
+    .profile-links { justify-content: center; }
+    .stats-row { grid-template-columns: 1fr; }
+}
+</style>
+
+{% endblock %}

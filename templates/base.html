@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>HIRIVO</title>
+
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Main CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+</head>
+
+<body>
+
+    <!-- Background blobs -->
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+
+
+    <!-- Navigation -->
+    <nav class="glass-nav">
+
+        <div class="nav-container">
+
+            <a href="{{ url_for('index') }}" class="logo">
+                Hiri<span>vo</span>
+            </a>
+
+            <ul class="nav-links">
+
+                {% if current_user.is_authenticated %}
+
+                    <li>
+                        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                    </li>
+
+                    <li>
+                        <a href="{{ url_for('interview_setup') }}">Start Interview</a>
+                    </li>
+
+                    <li>
+                        <a href="{{ url_for('logout') }}" class="btn-outline">Logout</a>
+                    </li>
+
+                {% else %}
+
+                    <li>
+                        <a href="{{ url_for('login') }}">Login</a>
+                    </li>
+
+                    <li>
+                        <a href="{{ url_for('register') }}" class="btn-primary">Register</a>
+                    </li>
+
+                {% endif %}
+
+            </ul>
+
+        </div>
+
+    </nav>
+
+
+    <!-- Main Content -->
+    <div class="container main-content">
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+
+            {% if messages %}
+
+                <div class="flash-messages">
+
+                    {% for category, message in messages %}
+
+                        <div class="alert alert-{{ category }}">
+                            {{ message }}
+                        </div>
+
+                    {% endfor %}
+
+                </div>
+
+            {% endif %}
+
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+
+    </div>
+
+
+    <!-- Footer -->
+    <footer>
+
+        <p>
+            © 2026 Hirivo
+        </p>
+
+        <p>
+            Developed for Academic Project • Group 6
+        </p>
+
+    </footer>
+
+</body>
+</html>

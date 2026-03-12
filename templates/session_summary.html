@@ -1,0 +1,255 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="summary-container">
+
+    <!-- Session Header -->
+    <div class="summary-header glass-panel">
+        <div class="summary-icon">{{ category_icon }}</div>
+        <h1 class="gradient-text">Session Complete!</h1>
+        <p class="summary-category">{{ session.category }}</p>
+        <p class="summary-meta">{{ session.completed_questions }} of {{ session.total_questions }} questions answered</p>
+    </div>
+
+    <!-- Overall Score -->
+    <div class="overall-score glass-panel">
+        <div class="big-score">
+            <span class="score-number {{ 'good' if avg_total > 70 else 'average' if avg_total > 40 else 'poor' }}">
+                {{ avg_total }}
+            </span>
+            <span class="score-label-text">Overall Score</span>
+        </div>
+    </div>
+
+    <!-- Score Breakdown -->
+    <div class="breakdown-grid">
+        <div class="breakdown-card glass-panel">
+            <div class="breakdown-icon">🔑</div>
+            <div class="breakdown-score {{ 'good' if avg_keyword > 70 else 'average' if avg_keyword > 40 else 'poor' }}">
+                {{ avg_keyword }}
+            </div>
+            <div class="breakdown-label">Keyword Avg</div>
+            <div class="breakdown-bar-bg">
+                <div class="breakdown-bar-fill" style="width: {{ avg_keyword }}%"></div>
+            </div>
+        </div>
+
+        <div class="breakdown-card glass-panel">
+            <div class="breakdown-icon">📝</div>
+            <div class="breakdown-score {{ 'good' if avg_grammar > 70 else 'average' if avg_grammar > 40 else 'poor' }}">
+                {{ avg_grammar }}
+            </div>
+            <div class="breakdown-label">Grammar Avg</div>
+            <div class="breakdown-bar-bg">
+                <div class="breakdown-bar-fill" style="width: {{ avg_grammar }}%"></div>
+            </div>
+        </div>
+
+        <div class="breakdown-card glass-panel">
+            <div class="breakdown-icon">💪</div>
+            <div class="breakdown-score {{ 'good' if avg_confidence > 70 else 'average' if avg_confidence > 40 else 'poor' }}">
+                {{ avg_confidence }}
+            </div>
+            <div class="breakdown-label">Confidence Avg</div>
+            <div class="breakdown-bar-bg">
+                <div class="breakdown-bar-fill" style="width: {{ avg_confidence }}%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Per-Question Breakdown -->
+    <h3 class="section-title">📋 Question-by-Question Results</h3>
+    <div class="question-results">
+        {% for attempt in attempts %}
+        <div class="result-card glass-panel">
+            <div class="result-header">
+                <span class="result-num">Q{{ loop.index }}</span>
+                <span class="badge {{ 'badge-good' if attempt.total_score > 70 else 'badge-avg' if attempt.total_score > 40 else 'badge-poor' }}">
+                    {{ attempt.total_score }}/100
+                </span>
+            </div>
+            <p class="result-question"><strong>Q:</strong> {{ attempt.question }}</p>
+            <p class="result-answer">
+                <strong>Your Answer:</strong>
+                "{{ attempt.answer[:150] }}{% if attempt.answer|length > 150 %}...{% endif %}"
+            </p>
+            <div class="result-scores">
+                <span class="mini-score">🔑 {{ attempt.keyword_score }}</span>
+                <span class="mini-score">📝 {{ attempt.grammar_score }}</span>
+                <span class="mini-score">💪 {{ attempt.confidence_score }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Actions -->
+    <div class="summary-actions">
+        <a href="{{ url_for('interview_setup') }}" class="btn btn-primary btn-large">
+            🎤 Start New Session
+        </a>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary btn-large">
+            Back to Dashboard
+        </a>
+    </div>
+
+</div>
+
+<style>
+.summary-container {
+    max-width: 850px;
+    margin: 0 auto;
+    padding: 0 20px 2rem;
+}
+
+/* Header */
+.summary-header {
+    text-align: center;
+    padding: 2.5rem;
+    margin-bottom: 1.5rem;
+}
+.summary-icon {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+}
+.summary-header h1 {
+    font-size: 2rem;
+}
+.summary-category {
+    font-size: 1rem;
+    color: #a78bfa;
+    font-weight: 600;
+    margin-top: 0.3rem;
+}
+.summary-meta {
+    font-size: 0.85rem;
+    color: #888;
+    margin-top: 0.3rem;
+}
+
+/* Overall Score */
+.overall-score {
+    text-align: center;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+}
+.big-score {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.score-number {
+    font-size: 5rem;
+    font-weight: 800;
+    line-height: 1;
+}
+.score-number.good { color: #34d399; }
+.score-number.average { color: #fbbf24; }
+.score-number.poor { color: #f87171; }
+.score-label-text {
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #888;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+}
+
+/* Breakdown Grid */
+.breakdown-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+.breakdown-card {
+    text-align: center;
+    padding: 1.5rem 1rem;
+}
+.breakdown-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+.breakdown-score {
+    font-size: 2rem;
+    font-weight: 700;
+}
+.breakdown-score.good { color: #34d399; }
+.breakdown-score.average { color: #fbbf24; }
+.breakdown-score.poor { color: #f87171; }
+.breakdown-label {
+    font-size: 0.8rem;
+    color: #888;
+    margin: 0.3rem 0 0.8rem;
+}
+.breakdown-bar-bg {
+    height: 6px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.breakdown-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #a78bfa, #60a5fa);
+    border-radius: 4px;
+    transition: width 0.8s ease;
+}
+
+/* Question Results */
+.question-results {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+.result-card {
+    padding: 1.2rem 1.5rem;
+}
+.result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+.result-num {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #a78bfa;
+    background: rgba(167,139,250,0.12);
+    padding: 3px 10px;
+    border-radius: 12px;
+}
+.result-question {
+    font-size: 0.95rem;
+    margin-bottom: 0.3rem;
+}
+.result-answer {
+    font-size: 0.85rem;
+    color: #999;
+    margin-bottom: 0.5rem;
+    font-style: italic;
+}
+.result-scores {
+    display: flex;
+    gap: 1rem;
+}
+.mini-score {
+    font-size: 0.8rem;
+    color: #bbb;
+    background: rgba(255,255,255,0.06);
+    padding: 3px 10px;
+    border-radius: 8px;
+}
+
+/* Actions */
+.summary-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 600px) {
+    .breakdown-grid { grid-template-columns: 1fr; }
+    .score-number { font-size: 3.5rem; }
+}
+</style>
+{% endblock %}
