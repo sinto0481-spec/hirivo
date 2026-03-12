@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Hirivo — AI-powered mock interview platform. Practice with real questions, get instant NLP feedback on keywords, grammar, and confidence.">
 
     <title>HIRIVO</title>
 
@@ -31,7 +32,12 @@
                 Hiri<span>vo</span>
             </a>
 
-            <ul class="nav-links">
+            <!-- Hamburger toggle (mobile only) -->
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                ☰
+            </button>
+
+            <ul class="nav-links" id="navLinks">
 
                 {% if current_user.is_authenticated %}
 
@@ -64,6 +70,44 @@
         </div>
 
     </nav>
+
+    <style>
+        /* Default: hide the toggle on desktop */
+        .nav-toggle {
+            display: none;
+            background: none;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: var(--text-main);
+            font-size: 1.3rem;
+            padding: 4px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .nav-toggle:hover {
+            background: rgba(255,255,255,0.08);
+        }
+    </style>
+
+    <script>
+        (function() {
+            const toggle = document.getElementById('navToggle');
+            const links  = document.getElementById('navLinks');
+            if (toggle && links) {
+                toggle.addEventListener('click', function() {
+                    links.classList.toggle('nav-open');
+                    toggle.textContent = links.classList.contains('nav-open') ? '✕' : '☰';
+                });
+                // Close nav when a link is tapped on mobile
+                links.querySelectorAll('a').forEach(function(a) {
+                    a.addEventListener('click', function() {
+                        links.classList.remove('nav-open');
+                        toggle.textContent = '☰';
+                    });
+                });
+            }
+        })();
+    </script>
 
 
     <!-- Main Content -->

@@ -143,10 +143,18 @@
     let totalQuestions = {{ total_questions }};
     let isLastQuestion = {{ 'true' if is_last else 'false' }};
 
-
-    // ---------------- TIMER ----------------
+    // Speech recognition state — declared at top so startTimer() can access isStopped safely
+    const SpeechAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    let finalTranscript = '';
+    let hasError = false;
+    let isStopped = false;   // true = user or timer stopped intentionally
+    let timerStarted = false; // guard against double-timer
 
     function startTimer() {
+
+        if (timerStarted) return; // prevent double-timer
+        timerStarted = true;
 
         timeLeft = timeLimit;
 
@@ -163,6 +171,7 @@
             if (timeLeft <= 0) {
 
                 clearInterval(timerInterval);
+                timerStarted = false;
                 isStopped = true;
 
                 if (recognition) {
@@ -178,13 +187,6 @@
 
 
     // ---------------- SPEECH RECOGNITION ----------------
-
-    const SpeechAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    let recognition = null;
-    let finalTranscript = '';
-    let hasError = false;
-    let isStopped = false;   // true = user or timer stopped intentionally
 
     if (SpeechAPI) {
 
@@ -233,14 +235,19 @@
 
         recognition.onerror = function (event) {
 
+            // 'no-speech' is a routine mobile event — don't alert, just reset quietly
+            if (event.error === 'no-speech') {
+                if (!isStopped) {
+                    // Mobile auto-stopped due to silence; restart if timer still running
+                    try { recognition.start(); } catch(e) { /* already started */ }
+                }
+                return;
+            }
+
             hasError = true;
-
-            document.getElementById('statusText').innerText = 'Error: ' + event.error;
+            document.getElementById('statusText').innerText = 'Microphone error: ' + event.error;
             document.getElementById('recordingStatus').className = 'recording-status error';
-
             resetButtons();
-
-            alert("Microphone error: " + event.error);
         };
 
         recognition.onend = function () {
@@ -278,6 +285,7 @@
             isStopped = false;
             finalTranscript = '';
             hasError = false;
+            timerStarted = false;
             recognition.start();
         }
     });
@@ -432,18 +440,28 @@
                     document.getElementById('finishBtn').style.display = 'none';
                 }
 
+                // Reset speech recognition state for next question
+                isStopped = false;
+                finalTranscript = '';
+                hasError = false;
+                timerStarted = false;
+                clearInterval(timerInterval);
+
                 // Reset UI
                 timeLeft = timeLimit;
                 document.getElementById("timerDisplay").innerText =
                     "Time Remaining: " + timeLimit + "s";
 
                 document.getElementById("resultsPanel").style.display = "none";
+                document.getElementById("scoreContainer").style.display = "none";
                 document.getElementById("tipsSection").style.display = "none";
                 document.getElementById("keywordsSection").style.display = "none";
                 document.getElementById("transcriptionText").innerText =
                     "Your speech will appear here...";
                 document.getElementById("statusText").innerText = "Ready to start";
                 document.getElementById("recordingStatus").className = "recording-status idle";
+                document.getElementById("startBtn").style.display = "inline-block";
+                document.getElementById("stopBtn").style.display = "none";
             })
             .catch(err => {
                 alert("Error loading question: " + err.message);
@@ -601,6 +619,16 @@
     font-size: 0.8rem;
     color: #888;
     font-style: italic;
+}
+
+@media (max-width: 640px) {
+    .session-bar { padding: 0.8rem 1rem; }
+    .session-info { flex-direction: column; align-items: flex-start; gap: 0.3rem; }
+    .interview-container { gap: 1rem; }
+    .tips-section { padding: 1rem; }
+    .keywords-section { padding: 1rem; }
+    #timerDisplay { font-size: 0.85rem; }
+    .session-category { font-size: 0.82rem; }
 }
 </style>
 
