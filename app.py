@@ -274,9 +274,8 @@ class Attempt(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
 
-    # ================================================================
-#                 CREATE DATABASE TABLES
-# ================================================================
+
+# CREATE DATABASE TABLES
 with app.app_context():
     db.create_all()
 
