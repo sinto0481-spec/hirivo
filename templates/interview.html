@@ -147,9 +147,12 @@
     const SpeechAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;
     let finalTranscript = '';
+    let committedTranscript = '';  // text saved from previous recognition sessions (mobile restarts)
     let hasError = false;
-    let isStopped = false;   // true = user or timer stopped intentionally
-    let timerStarted = false; // guard against double-timer
+    let isStopped = false;         // true = user or timer stopped intentionally
+    let timerStarted = false;      // guard against double-timer
+    let restartPending = false;    // prevents double-start race between onerror + onend
+    let isFirstStart = true;       // tracks user-initiated (fresh) start vs auto-restart
 
     function startTimer() {
 
@@ -193,11 +196,14 @@
         recognition = new SpeechAPI();
         recognition.continuous = true;
         recognition.interimResults = true;
+        recognition.lang = 'en-US';  // explicit language improves mobile accuracy
 
         recognition.onstart = function () {
+            restartPending = false;
 
-            // Only reset state on a fresh start, not on auto-restart
-            if (!isStopped && finalTranscript === '') {
+            // Only update UI on the first user-initiated start (not mobile auto-restarts)
+            if (isFirstStart) {
+                isFirstStart = false;
                 startTimer();
                 document.getElementById('recordingStatus').className = 'recording-status recording';
                 document.getElementById('statusText').innerText = 'Recording... Speak now';
@@ -210,13 +216,13 @@
 
         recognition.onresult = function (event) {
 
-            // Rebuild final transcript from ALL finalized results (safe for mobile)
-            let builtFinal = '';
+            // Rebuild final transcript from THIS recognition session's results only
+            let sessionFinal = '';
             let latestInterim = '';
 
             for (let i = 0; i < event.results.length; i++) {
                 if (event.results[i].isFinal) {
-                    builtFinal += event.results[i][0].transcript + ' ';
+                    sessionFinal += event.results[i][0].transcript + ' ';
                 }
             }
 
@@ -226,7 +232,8 @@
                 latestInterim = lastResult[0].transcript;
             }
 
-            finalTranscript = builtFinal;
+            // Prepend text committed from prior recognition sessions (mobile restarts)
+            finalTranscript = committedTranscript + sessionFinal;
 
             document.getElementById('transcriptionText').innerHTML =
                 "<strong>" + finalTranscript + "</strong>" +
@@ -235,12 +242,16 @@
 
         recognition.onerror = function (event) {
 
-            // 'no-speech' is a routine mobile event — don't alert, just reset quietly
+            // 'no-speech' is a routine mobile event — don't alert, just flag for restart
             if (event.error === 'no-speech') {
-                if (!isStopped) {
-                    // Mobile auto-stopped due to silence; restart if timer still running
-                    try { recognition.start(); } catch(e) { /* already started */ }
-                }
+                // Let onend handle the restart — just set the flag
+                restartPending = !isStopped;
+                return;
+            }
+
+            // 'aborted' can occur on mobile when recognition is restarted quickly
+            if (event.error === 'aborted') {
+                restartPending = !isStopped;
                 return;
             }
 
@@ -259,6 +270,7 @@
                     if (finalTranscript.trim().length === 0) {
                         document.getElementById('statusText').innerText = 'No speech detected. Please try again.';
                         isStopped = false;
+                        isFirstStart = true;  // allow fresh UI update on retry
                         resetButtons();
                     } else {
                         submitAnswer(finalTranscript);
@@ -268,9 +280,18 @@
                     resetButtons();
                 }
             } else if (!hasError && timeLeft > 0) {
-                // Mobile auto-stop: restart recognition to keep recording
-                try { recognition.start(); } catch(e) { /* already started */ }
+                // Mobile auto-stop: commit current transcript so it's not re-emitted
+                committedTranscript = finalTranscript;
+
+                // Delay restart to avoid overlapping sessions on mobile
+                setTimeout(function () {
+                    if (!isStopped && timeLeft > 0) {
+                        try { recognition.start(); } catch(e) { /* already started */ }
+                    }
+                }, 300);
             }
+
+            restartPending = false;
         };
 
     } else {
@@ -284,8 +305,11 @@
         if (recognition) {
             isStopped = false;
             finalTranscript = '';
+            committedTranscript = '';
             hasError = false;
             timerStarted = false;
+            restartPending = false;
+            isFirstStart = true;
             recognition.start();
         }
     });
@@ -443,8 +467,11 @@
                 // Reset speech recognition state for next question
                 isStopped = false;
                 finalTranscript = '';
+                committedTranscript = '';
                 hasError = false;
                 timerStarted = false;
+                restartPending = false;
+                isFirstStart = true;
                 clearInterval(timerInterval);
 
                 // Reset UI
