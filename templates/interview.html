@@ -163,6 +163,7 @@
             if (timeLeft <= 0) {
 
                 clearInterval(timerInterval);
+                isStopped = true;
 
                 if (recognition) {
                     recognition.stop();
@@ -183,6 +184,7 @@
     let recognition = null;
     let finalTranscript = '';
     let hasError = false;
+    let isStopped = false;   // true = user or timer stopped intentionally
 
     if (SpeechAPI) {
 
@@ -192,34 +194,41 @@
 
         recognition.onstart = function () {
 
-            startTimer();
-
-            document.getElementById('recordingStatus').className = 'recording-status recording';
-            document.getElementById('statusText').innerText = 'Recording... Speak now';
-            document.getElementById('startBtn').style.display = 'none';
-            document.getElementById('stopBtn').style.display = 'inline-block';
-            document.getElementById('transcriptionText').innerText = '';
-
-            finalTranscript = '';
-            hasError = false;
+            // Only reset state on a fresh start, not on auto-restart
+            if (!isStopped && finalTranscript === '') {
+                startTimer();
+                document.getElementById('recordingStatus').className = 'recording-status recording';
+                document.getElementById('statusText').innerText = 'Recording... Speak now';
+                document.getElementById('startBtn').style.display = 'none';
+                document.getElementById('stopBtn').style.display = 'inline-block';
+                document.getElementById('transcriptionText').innerText = '';
+                hasError = false;
+            }
         };
 
         recognition.onresult = function (event) {
 
-            let interimTranscript = '';
+            // Rebuild final transcript from ALL finalized results (safe for mobile)
+            let builtFinal = '';
+            let latestInterim = '';
 
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-
+            for (let i = 0; i < event.results.length; i++) {
                 if (event.results[i].isFinal) {
-                    finalTranscript += event.results[i][0].transcript + ' ';
-                } else {
-                    interimTranscript += event.results[i][0].transcript;
+                    builtFinal += event.results[i][0].transcript + ' ';
                 }
             }
 
+            // Only show the LAST non-final (interim) result — don't concatenate them
+            const lastResult = event.results[event.results.length - 1];
+            if (lastResult && !lastResult.isFinal) {
+                latestInterim = lastResult[0].transcript;
+            }
+
+            finalTranscript = builtFinal;
+
             document.getElementById('transcriptionText').innerHTML =
                 "<strong>" + finalTranscript + "</strong>" +
-                "<span style='color:#888'>" + interimTranscript + "</span>";
+                "<span style='color:#888'>" + latestInterim + "</span>";
         };
 
         recognition.onerror = function (event) {
@@ -236,18 +245,24 @@
 
         recognition.onend = function () {
 
-            clearInterval(timerInterval);
-
-            if (!hasError) {
-                if (finalTranscript.trim().length === 0) {
-                    document.getElementById('statusText').innerText = 'No speech detected. Please try again.';
-                    resetButtons();
+            // If stopped intentionally (user or timer), submit the answer
+            if (isStopped) {
+                clearInterval(timerInterval);
+                if (!hasError) {
+                    if (finalTranscript.trim().length === 0) {
+                        document.getElementById('statusText').innerText = 'No speech detected. Please try again.';
+                        isStopped = false;
+                        resetButtons();
+                    } else {
+                        submitAnswer(finalTranscript);
+                        resetButtons();
+                    }
                 } else {
-                    submitAnswer(finalTranscript);
                     resetButtons();
                 }
-            } else {
-                resetButtons();
+            } else if (!hasError && timeLeft > 0) {
+                // Mobile auto-stop: restart recognition to keep recording
+                try { recognition.start(); } catch(e) { /* already started */ }
             }
         };
 
@@ -260,11 +275,15 @@
 
     document.getElementById('startBtn').addEventListener('click', () => {
         if (recognition) {
+            isStopped = false;
+            finalTranscript = '';
+            hasError = false;
             recognition.start();
         }
     });
 
     document.getElementById('stopBtn').addEventListener('click', () => {
+        isStopped = true;
         if (recognition) {
             recognition.stop();
         }
