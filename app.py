@@ -196,7 +196,6 @@ def get_tips(keyword_score, grammar_score, confidence_score):
     """Generate improvement tips based on score ranges."""
     tips = []
 
-    # Keyword tips
     if keyword_score <= 40:
         tips.append(random.choice(KEYWORD_TIPS["low"]))
     elif keyword_score <= 70:
@@ -204,7 +203,6 @@ def get_tips(keyword_score, grammar_score, confidence_score):
     else:
         tips.append(random.choice(KEYWORD_TIPS["high"]))
 
-    # Grammar tips
     if grammar_score <= 40:
         tips.append(random.choice(GRAMMAR_TIPS["low"]))
     elif grammar_score <= 70:
@@ -212,7 +210,6 @@ def get_tips(keyword_score, grammar_score, confidence_score):
     else:
         tips.append(random.choice(GRAMMAR_TIPS["high"]))
 
-    # Confidence tips
     if confidence_score <= 40:
         tips.append(random.choice(CONFIDENCE_TIPS["low"]))
     elif confidence_score <= 70:
@@ -272,7 +269,6 @@ class Attempt(db.Model):
     category = db.Column(db.String(100), nullable=True)
     session_id = db.Column(db.Integer, db.ForeignKey('interview_session.id'), nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-
 
 
 # CREATE DATABASE TABLES
@@ -374,14 +370,14 @@ def setup_profile():
             profile = Profile(user_id=current_user.id)
             db.session.add(profile)
 
-        profile.full_name    = request.form.get('full_name', '').strip()
-        profile.college      = request.form.get('college', '').strip()
-        profile.branch       = request.form.get('branch', '').strip()
+        profile.full_name     = request.form.get('full_name', '').strip()
+        profile.college       = request.form.get('college', '').strip()
+        profile.branch        = request.form.get('branch', '').strip()
         profile.year_of_study = request.form.get('year_of_study', '').strip()
-        profile.phone        = request.form.get('phone', '').strip()
-        profile.linkedin     = request.form.get('linkedin', '').strip()
-        profile.github       = request.form.get('github', '').strip()
-        profile.career_goal  = request.form.get('career_goal', '').strip()
+        profile.phone         = request.form.get('phone', '').strip()
+        profile.linkedin      = request.form.get('linkedin', '').strip()
+        profile.github        = request.form.get('github', '').strip()
+        profile.career_goal   = request.form.get('career_goal', '').strip()
 
         db.session.commit()
         flash('Profile saved successfully!', 'success')
@@ -409,7 +405,6 @@ def dashboard():
         for a in reversed(attempts[:10])
     ]
 
-    # Recent sessions
     recent_sessions = InterviewSession.query.filter_by(user_id=current_user.id)\
         .order_by(InterviewSession.id.desc()).limit(5).all()
 
@@ -456,10 +451,8 @@ def interview_start():
     available_questions = list(CATEGORIES[category]["questions"].keys())
     num_questions = min(num_questions, len(available_questions))
 
-    # Pick random questions for session
     selected = random.sample(available_questions, num_questions)
 
-    # Create session
     new_session = InterviewSession(
         user_id=current_user.id,
         category=category,
@@ -468,7 +461,6 @@ def interview_start():
     db.session.add(new_session)
     db.session.commit()
 
-    # Store question list in Flask session
     session[f'session_{new_session.id}_questions'] = selected
     session[f'session_{new_session.id}_current'] = 0
 
@@ -495,7 +487,6 @@ def interview_session(session_id):
     current_idx = session.get(current_key, 0)
 
     if not questions or current_idx >= len(questions):
-        # Session data lost or completed — mark complete
         interview_sess.is_complete = True
         db.session.commit()
         return redirect(url_for('session_summary', session_id=session_id))
@@ -531,9 +522,7 @@ def session_next_question(session_id):
     questions = session.get(questions_key, [])
 
     if current_idx >= len(questions):
-        # Session complete
         interview_sess.is_complete = True
-        # Calculate average score
         session_attempts = Attempt.query.filter_by(session_id=session_id).all()
         if session_attempts:
             interview_sess.avg_score = round(
@@ -565,7 +554,6 @@ def session_summary(session_id):
         flash('Session not found.', 'danger')
         return redirect(url_for('interview_setup'))
 
-    # Mark complete if not already
     if not interview_sess.is_complete:
         interview_sess.is_complete = True
         session_attempts = Attempt.query.filter_by(session_id=session_id).all()
@@ -580,10 +568,10 @@ def session_summary(session_id):
         .order_by(Attempt.id.asc()).all()
 
     if attempts:
-        avg_keyword = round(sum(a.keyword_score for a in attempts) / len(attempts), 1)
-        avg_grammar = round(sum(a.grammar_score for a in attempts) / len(attempts), 1)
+        avg_keyword    = round(sum(a.keyword_score for a in attempts) / len(attempts), 1)
+        avg_grammar    = round(sum(a.grammar_score for a in attempts) / len(attempts), 1)
         avg_confidence = round(sum(a.confidence_score for a in attempts) / len(attempts), 1)
-        avg_total = round(sum(a.total_score for a in attempts) / len(attempts), 1)
+        avg_total      = round(sum(a.total_score for a in attempts) / len(attempts), 1)
     else:
         avg_keyword = avg_grammar = avg_confidence = avg_total = 0
 
@@ -599,7 +587,6 @@ def session_summary(session_id):
     )
 
 
-# Keep the old single-question route as a quick-play fallback
 @app.route('/interview')
 @login_required
 def interview():
@@ -613,120 +600,143 @@ def interview():
 @app.route('/api/analyze', methods=['POST'])
 @login_required
 def analyze_answer():
-    data = request.get_json()
-    answer_text = data.get('answer', '')
-    question_text = data.get('question', '')
-    session_id = data.get('session_id')
+    try:
+        data = request.get_json()
 
-    word_count = len(answer_text.split())
+        if not data:
+            return jsonify({"error": "Invalid JSON payload."}), 400
 
-    if word_count == 0:
+        answer_text  = data.get('answer', '')
+        question_text = data.get('question', '')
+
+        # FIX 1: Cast session_id to int to avoid type mismatch with the DB
+        raw_session_id = data.get('session_id')
+        try:
+            session_id = int(raw_session_id) if raw_session_id is not None else None
+        except (ValueError, TypeError):
+            session_id = None
+
+        word_count = len(answer_text.split())
+
+        if word_count == 0:
+            return jsonify({
+                "keyword_score": 0,
+                "grammar_score": 0,
+                "confidence_score": 0,
+                "total_score": 0,
+                "keyword_feedback": "No answer detected.",
+                "grammar_feedback": "Please provide an answer.",
+                "confidence_feedback": "Speak your response clearly.",
+                "improvement_tips": ["Try speaking clearly into the microphone."],
+                "expected_keywords": QUESTION_KEYWORDS.get(question_text, []),
+                "matched_keywords": [],
+                "missed_keywords": QUESTION_KEYWORDS.get(question_text, [])
+            })
+
+        # -------- Keyword Analysis --------
+        expected_keywords = QUESTION_KEYWORDS.get(question_text, [])
+        answer_lower      = answer_text.lower()
+        matched_keywords  = [kw for kw in expected_keywords if kw in answer_lower]
+        missed_keywords   = [kw for kw in expected_keywords if kw not in answer_lower]
+        keyword_score     = min(100, len(matched_keywords) * 15)
+
+        words = re.findall(r'\w+', answer_lower)
+        if len(words) > 20 and keyword_score < 40:
+            keyword_score = 40
+
+        # -------- Grammar Analysis --------
+        blob           = TextBlob(answer_text)
+        sentence_count = len(blob.sentences)
+        grammar_score  = min(100, max(20, sentence_count * 20 + 30))
+        if len(words) < 5:
+            grammar_score = 10
+
+        # -------- Confidence Analysis --------
+        filler_words  = ['um', 'uh', 'like', 'you know', 'basically', 'actually', 'sort of']
+        filler_count  = sum(
+            len(re.findall(r'\b' + re.escape(fw) + r'\b', answer_lower))
+            for fw in filler_words
+        )
+        confidence_score = max(10, 100 - (filler_count * 15))
+        if word_count < 5:
+            confidence_score = max(confidence_score - 20, 10)
+
+        # -------- Final Score --------
+        total_score = int(
+            (keyword_score * 0.4) +
+            (grammar_score * 0.3) +
+            (confidence_score * 0.3)
+        )
+
+        # -------- Improvement Tips --------
+        tips = get_tips(keyword_score, grammar_score, confidence_score)
+
+        # -------- Determine category --------
+        category = QUESTION_CATEGORY.get(question_text, 'General')
+
+        # -------- Save Attempt --------
+        attempt = Attempt(
+            question=question_text,
+            answer=answer_text,
+            keyword_score=keyword_score,
+            grammar_score=grammar_score,
+            confidence_score=confidence_score,
+            total_score=total_score,
+            category=category,
+            session_id=session_id,
+            user_id=current_user.id
+        )
+        db.session.add(attempt)
+
+        # FIX 2: flush() writes the attempt to the DB within the current
+        # transaction so the query below sees it, avoiding the race condition
+        # that caused the 500 error.
+        db.session.flush()
+
+        # Update session progress
+        if session_id:
+            interview_sess = db.session.get(InterviewSession, session_id)
+            if interview_sess:
+                session_attempts = Attempt.query.filter_by(session_id=session_id).all()
+                interview_sess.completed_questions = len(session_attempts)
+                interview_sess.avg_score = round(
+                    sum(a.total_score for a in session_attempts) / len(session_attempts), 1
+                )
+
+        db.session.commit()
+
         return jsonify({
-            "keyword_score": 0,
-            "grammar_score": 0,
-            "confidence_score": 0,
-            "total_score": 0,
-            "keyword_feedback": "No answer detected.",
-            "grammar_feedback": "Please provide an answer.",
-            "confidence_feedback": "Speak your response clearly.",
-            "improvement_tips": ["Try speaking clearly into the microphone."],
-            "expected_keywords": QUESTION_KEYWORDS.get(question_text, []),
-            "matched_keywords": [],
-            "missed_keywords": QUESTION_KEYWORDS.get(question_text, [])
+            'keyword_score':    keyword_score,
+            'grammar_score':    grammar_score,
+            'confidence_score': confidence_score,
+            'total_score':      total_score,
+            'grammar_feedback': (
+                "Good sentence structure."
+                if grammar_score > 60
+                else "Consider using clearer sentence structures."
+            ),
+            'confidence_feedback': (
+                "You sounded very confident!"
+                if confidence_score > 70
+                else "Try to reduce filler words like 'um' and 'uh'."
+            ),
+            'keyword_feedback': (
+                "Great use of relevant terms."
+                if keyword_score > 60
+                else "Try to use more specific keywords related to the question."
+            ),
+            'improvement_tips':  tips,
+            'expected_keywords': expected_keywords,
+            'matched_keywords':  matched_keywords,
+            'missed_keywords':   missed_keywords
         })
 
-    # -------- Keyword Analysis --------
-    expected_keywords = QUESTION_KEYWORDS.get(question_text, [])
-    answer_lower = answer_text.lower()
-    matched_keywords = [kw for kw in expected_keywords if kw in answer_lower]
-    missed_keywords = [kw for kw in expected_keywords if kw not in answer_lower]
-    keyword_score = min(100, len(matched_keywords) * 15)
-
-    words = re.findall(r'\w+', answer_lower)
-    if len(words) > 20 and keyword_score < 40:
-        keyword_score = 40
-
-    # -------- Grammar Analysis --------
-    blob = TextBlob(answer_text)
-    sentence_count = len(blob.sentences)
-    grammar_score = min(100, max(20, sentence_count * 20 + 30))
-    if len(words) < 5:
-        grammar_score = 10
-
-    # -------- Confidence Analysis --------
-    filler_words = ['um', 'uh', 'like', 'you know', 'basically', 'actually', 'sort of']
-    filler_count = sum(
-        len(re.findall(r'\b' + re.escape(fw) + r'\b', answer_lower))
-        for fw in filler_words
-    )
-    confidence_score = max(10, 100 - (filler_count * 15))
-    if word_count < 5:
-        confidence_score = max(confidence_score - 20, 10)
-
-    # -------- Final Score --------
-    total_score = int(
-        (keyword_score * 0.4) +
-        (grammar_score * 0.3) +
-        (confidence_score * 0.3)
-    )
-
-    # -------- Improvement Tips --------
-    tips = get_tips(keyword_score, grammar_score, confidence_score)
-
-    # -------- Determine category --------
-    category = QUESTION_CATEGORY.get(question_text, 'General')
-
-    # -------- Save Attempt --------
-    attempt = Attempt(
-        question=question_text,
-        answer=answer_text,
-        keyword_score=keyword_score,
-        grammar_score=grammar_score,
-        confidence_score=confidence_score,
-        total_score=total_score,
-        category=category,
-        session_id=session_id,
-        user_id=current_user.id
-    )
-    db.session.add(attempt)
-
-    # Update session progress
-    if session_id:
-        interview_sess = db.session.get(InterviewSession, session_id)
-        if interview_sess:
-            interview_sess.completed_questions = (interview_sess.completed_questions or 0) + 1
-            # Update running average
-            session_attempts = Attempt.query.filter_by(session_id=session_id).all()
-            all_scores = [a.total_score for a in session_attempts] + [total_score]
-            interview_sess.avg_score = round(sum(all_scores) / len(all_scores), 1)
-
-    db.session.commit()
-
-    return jsonify({
-        'keyword_score': keyword_score,
-        'grammar_score': grammar_score,
-        'confidence_score': confidence_score,
-        'total_score': total_score,
-        'grammar_feedback': (
-            "Good sentence structure."
-            if grammar_score > 60
-            else "Consider using clearer sentence structures."
-        ),
-        'confidence_feedback': (
-            "You sounded very confident!"
-            if confidence_score > 70
-            else "Try to reduce filler words like 'um' and 'uh'."
-        ),
-        'keyword_feedback': (
-            "Great use of relevant terms."
-            if keyword_score > 60
-            else "Try to use more specific keywords related to the question."
-        ),
-        'improvement_tips': tips,
-        'expected_keywords': expected_keywords,
-        'matched_keywords': matched_keywords,
-        'missed_keywords': missed_keywords
-    })
+    # FIX 3: Catch any unexpected exception, rollback cleanly, and return
+    # a proper JSON error instead of a raw 500 HTML page.
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error in analyze_answer: {e}", exc_info=True)
+        return jsonify({"error": "Failed to analyse answer. Please try again."}), 500
 
 
 # ================================================================
@@ -734,6 +744,6 @@ def analyze_answer():
 # ================================================================
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
+    port  = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
     app.run(debug=debug, host='0.0.0.0', port=port)
